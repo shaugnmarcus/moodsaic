@@ -94,6 +94,7 @@
         .header-actions {
             display: flex;
             gap: 10px;
+            align-items: center;
         }
 
         h1 {
@@ -657,15 +658,19 @@
 
         /* MOBILE */
         @media (max-width: 600px) {
-            header {
+            .app-header {
+                padding: 15px 15px 0;
+            }
+            .header-inner {
                 flex-direction: column;
-                gap: 15px;
-                align-items: stretch;
+                gap: 12px;
+                align-items: center;
             }
-            header h1 {
+            .header-inner h1 {
                 text-align: center;
+                font-size: 1.6rem;
             }
-            header > div {
+            .header-actions {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
