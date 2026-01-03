@@ -399,9 +399,13 @@
             // always show when at the very top
             if (top <= 0) {
                 header.classList.remove('is-hidden');
+                header.classList.remove('scrolled');
                 lastTop = top;
                 return;
             }
+
+            // mark as scrolled when not at top
+            header.classList.add('scrolled');
 
             const delta = top - lastTop;
             // ignore tiny jitter
