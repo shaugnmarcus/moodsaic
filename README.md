@@ -28,7 +28,7 @@ Visualize your year in color. Each day becomes a little colored cell on a calend
 
 ## Screenshots
 
-The app uses a dark glassmorphism theme. Each day appears as a small colored cell — bad days are red/orange, good days are blue/green. Over time your calendar fills up with colors showing your emotional journey through the year.
+The app uses a dark theme. Each day appears as a small colored cell: bad days are red/orange, good days are blue/green. Over time your calendar fills up with colors showing your emotional journey through the year.
 
 ## License
 
