@@ -46,7 +46,8 @@
         const layouts = ['grid', 'month', 'timeline'];
         const layoutIndex = layouts.indexOf(currentLayout);
         currentLayout = layouts[(layoutIndex + 1) % layouts.length];
-        applyLayout();
+
+        renderCalendar();
     }
 
     function applyLayout() {
