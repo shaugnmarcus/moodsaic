@@ -26,6 +26,20 @@
     let currentSelection = { dateStr: null, dateObj: null };
     let currentLayout = 'grid'; // 'grid' | 'month' | 'timeline'
     let currentMonth = new Date().getMonth(); // 0 to 11 for month view
+    let ignoringScrollUntil = 0; // timestamp to ignore scroll events (for programmatic scrolls)
+
+    // UI refs
+    const getScrollArea = () => document.getElementById('scrollArea');
+    const getHeader = () => document.getElementById('appHeader');
+    let cachedMonthCards = null; // cached for perf
+
+    function isCurrentYearSelected() {
+        return YEAR === new Date().getFullYear();
+    }
+
+    function getTodayDateStr() {
+        return formatDate(new Date());
+    }
 
     // LAYOUT STUFF
     function toggleLayout() {
@@ -53,28 +67,32 @@
         icon.innerHTML = icons[currentLayout];
 
         if (currentLayout === 'month') {
+            if (isCurrentYearSelected()) {
+                currentMonth = new Date().getMonth();
+            }
             container.classList.add('month-view');
             monthNav.classList.add('active');
             updateMonthView();
         } else if (currentLayout === 'timeline') {
             container.classList.add('timeline-view');
+            // center the current date row when switching into timeline
+            requestAnimationFrame(() => scrollToToday({ behavior: 'auto' }));
         }
     }
 
     function updateMonthView() {
-        const cards = document.querySelectorAll('.month-card');
-        cards.forEach((card, cardIndex) => {
-            if (cardIndex === currentMonth) {
-                card.classList.add('active-month');
-            } else {
-                card.classList.remove('active-month');
-            }
-        });
-
-        // ensure the visible month is revealed in month view
-        const activeCard = cards[currentMonth];
+        // use cached cards if available
+        if (!cachedMonthCards || !cachedMonthCards.length) {
+            cachedMonthCards = document.querySelectorAll('.month-card');
+        }
+        
+        // remove active from current active card only (faster than iterating all)
+        const prevActive = document.querySelector('.month-card.active-month');
+        if (prevActive) prevActive.classList.remove('active-month');
+        
+        const activeCard = cachedMonthCards[currentMonth];
         if (activeCard) {
-            activeCard.classList.add('in-view');
+            activeCard.classList.add('active-month', 'in-view');
         }
 
         document.getElementById('navMonthLabel').textContent = `${MONTHS[currentMonth]} ${YEAR}`;
@@ -134,6 +152,9 @@
     document.addEventListener('DOMContentLoaded', () => {
         setupEmojiGrid();
         setupMoodSelectors();
+        setupHeaderSizing();
+        setupHeaderScrollBehavior();
+        setupCalendarClickDelegation();
         
         // when user logs in or out
         auth.onAuthStateChanged(async user => {
@@ -149,6 +170,23 @@
             }
         });
     });
+
+    // single event listener for all calendar/timeline clicks (better perf than 365+ individual handlers)
+    function setupCalendarClickDelegation() {
+        const container = document.getElementById('calendar');
+        if (!container) return;
+        
+        container.addEventListener('click', (e) => {
+            // find the clicked day-cell or timeline-entry
+            const dayCell = e.target.closest('.day-cell');
+            const timelineEntry = e.target.closest('.timeline-entry');
+            const target = dayCell || timelineEntry;
+            
+            if (target && target.dataset.date) {
+                handleDateClick(target.dataset.date);
+            }
+        });
+    }
 
     // grabs all mood entries from firestore
     async function loadMoodData() {
@@ -168,6 +206,10 @@
     function renderCalendar() {
         const container = document.getElementById('calendar');
         container.innerHTML = '';
+        cachedMonthCards = null; // clear cache on re-render
+
+        const todayStr = getTodayDateStr();
+        const shouldHighlightToday = isCurrentYearSelected();
 
         // using fragments here for better perf
         const fragment = document.createDocumentFragment();
@@ -205,8 +247,9 @@
                 const dateStr = `${YEAR}-${String(index+1).padStart(2,'0')}-${String(dayNumber).padStart(2,'0')}`;
                 const cell = document.createElement('div');
                 cell.className = 'day-cell';
+                cell.dataset.date = dateStr;
                 cell.innerHTML = `<span class="day-num">${dayNumber}</span>`;
-                cell.onclick = () => handleDateClick(dateStr);
+                // onclick handled via event delegation
 
                 // see if theres an entry for this day
                 const entry = getEntry(dateStr);
@@ -219,6 +262,9 @@
                         cell.classList.add('has-emoji');
                         cell.setAttribute('data-emoji', entry.emoji);
                     }
+                } else if (shouldHighlightToday && dateStr === todayStr) {
+                    // highlight only if it's today AND empty (no entry)
+                    cell.classList.add('today');
                 }
 
                 grid.appendChild(cell);
@@ -246,6 +292,38 @@
 
         // reveal month cards only when they scroll into view
         setupMonthCardReveal();
+
+        // jump to today's position after refresh/render (all layouts)
+        requestAnimationFrame(() => scrollToToday({ behavior: 'auto' }));
+    }
+
+    function scrollToToday({ behavior = 'auto' } = {}) {
+        if (!isCurrentYearSelected()) return;
+        const scrollArea = getScrollArea();
+        if (!scrollArea) return;
+
+        const todayStr = getTodayDateStr();
+
+        // tell header scroll handler to ignore scroll events briefly
+        ignoringScrollUntil = Date.now() + 150;
+
+        if (currentLayout === 'month') {
+            currentMonth = new Date().getMonth();
+            updateMonthView();
+        }
+
+        if (currentLayout === 'timeline') {
+            const row = scrollArea.querySelector(`.timeline-entry[data-date="${todayStr}"]`);
+            if (row) {
+                row.scrollIntoView({ block: 'center', behavior });
+            }
+            return;
+        }
+
+        const cell = scrollArea.querySelector(`.day-cell[data-date="${todayStr}"]`);
+        if (cell) {
+            cell.scrollIntoView({ block: 'center', behavior });
+        }
     }
 
     // SCROLL REVEAL (month cards)
@@ -259,6 +337,7 @@
             if (activeCard) {
                 activeCard.classList.add('in-view');
             }
+            return;
         }
 
         // fallback: if IntersectionObserver isn't supported, reveal everything
@@ -276,8 +355,8 @@
                 });
             },
             {
-                threshold: 0.15,
-                rootMargin: '0px 0px -10% 0px'
+                threshold: 0.1,
+                rootMargin: '50px 0px 50px 0px' // pre-reveal slightly before entering viewport
             }
         );
 
@@ -288,11 +367,76 @@
         });
     }
 
+    // HEADER (fixed) sizing + scroll behavior
+    function setupHeaderSizing() {
+        const header = getHeader();
+        if (!header) return;
+
+        const update = () => {
+            const height = header.offsetHeight || 0;
+            document.documentElement.style.setProperty('--header-height', `${height}px`);
+        };
+
+        update();
+        window.addEventListener('resize', update, { passive: true });
+    }
+
+    function setupHeaderScrollBehavior() {
+        const header = getHeader();
+        const scrollArea = getScrollArea();
+        if (!header || !scrollArea) return;
+
+        let lastTop = scrollArea.scrollTop;
+        let ticking = false;
+
+        const apply = (top) => {
+            // ignore programmatic scrolls (e.g., scrollToToday)
+            if (Date.now() < ignoringScrollUntil) {
+                lastTop = top;
+                return;
+            }
+
+            // always show when at the very top
+            if (top <= 0) {
+                header.classList.remove('is-hidden');
+                lastTop = top;
+                return;
+            }
+
+            const delta = top - lastTop;
+            // ignore tiny jitter
+            if (Math.abs(delta) < 4) {
+                lastTop = top;
+                return;
+            }
+
+            // scrolling down hides, scrolling up reveals
+            if (delta > 0) {
+                header.classList.add('is-hidden');
+            } else {
+                header.classList.remove('is-hidden');
+            }
+
+            lastTop = top;
+        };
+
+        scrollArea.addEventListener('scroll', () => {
+            const top = scrollArea.scrollTop;
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => {
+                apply(top);
+                ticking = false;
+            });
+        }, { passive: true });
+    }
+
     // builds a single timeline row
     function createTimelineEntry(dateStr, entry, monthName, day) {
         const element = document.createElement('div');
         element.className = 'timeline-entry';
-        element.onclick = () => handleDateClick(dateStr);
+        element.dataset.date = dateStr;
+        // onclick handled via event delegation
 
         const moodBox = document.createElement('div');
         moodBox.className = 'timeline-mood';
