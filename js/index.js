@@ -27,6 +27,7 @@
     let currentLayout = 'grid'; // 'grid' | 'month' | 'timeline'
     let currentMonth = new Date().getMonth(); // 0 to 11 for month view
     let ignoringScrollUntil = 0; // timestamp to ignore scroll events (for programmatic scrolls)
+    let collapsedMonths = new Set(); // tracks which months are collapsed in timeline view
 
     // UI refs
     const getScrollArea = () => document.getElementById('scrollArea');
@@ -46,6 +47,12 @@
         const layouts = ['grid', 'month', 'timeline'];
         const layoutIndex = layouts.indexOf(currentLayout);
         currentLayout = layouts[(layoutIndex + 1) % layouts.length];
+        // Reset header bar state completely (show header, reset transforms, etc.)
+        const header = getHeader();
+        if (header) {
+            header.classList.remove('is-hidden');
+            header.style.transform = '';
+        }
         // re-render so the currently selected layout always has fresh content
         renderCalendar();
     }
@@ -209,6 +216,9 @@
         const container = document.getElementById('calendar');
         container.innerHTML = '';
         cachedMonthCards = null; // clear cache on re-render
+        
+        // reset timeline state: all months collapsed by default
+        collapsedMonths = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
         const todayStr = getTodayDateStr();
         const shouldHighlightToday = isCurrentYearSelected();
@@ -223,11 +233,9 @@
             if (currentLayout === 'month' && index === currentMonth) {
                 card.classList.add('active-month');
             }
-            
             // days grid for this month
             const grid = document.createElement('div');
             grid.className = 'days-grid';
-            
             // weekday headers
             ['S','M','T','W','T','F','S'].forEach(dayLetter => {
                 const labelElement = document.createElement('div');
@@ -235,15 +243,14 @@
                 labelElement.innerText = dayLetter;
                 grid.appendChild(labelElement);
             });
-
             const daysInMonth = new Date(YEAR, index + 1, 0).getDate();
             const firstDayIndex = new Date(YEAR, index, 1).getDay();
-
             // blank cells before the 1st
             for(let blankIndex = 0; blankIndex < firstDayIndex; blankIndex++) {
                 grid.appendChild(document.createElement('div'));
             }
-
+            // collect entries for this month (for timeline)
+            const monthEntries = [];
             // actual day cells
             for(let dayNumber = 1; dayNumber <= daysInMonth; dayNumber++) {
                 const dateStr = `${YEAR}-${String(index+1).padStart(2,'0')}-${String(dayNumber).padStart(2,'0')}`;
@@ -252,13 +259,11 @@
                 cell.dataset.date = dateStr;
                 cell.innerHTML = `<span class="day-num">${dayNumber}</span>`;
                 // onclick handled via event delegation
-
                 // see if theres an entry for this day
                 const entry = getEntry(dateStr);
                 if(entry) {
                     cell.style.background = MOOD_COLORS[entry.level - 1];
                     cell.classList.add('filled');
-
                     // emoji shows on hover
                     if (entry.emoji) {
                         cell.classList.add('has-emoji');
@@ -268,33 +273,28 @@
                     // highlight only if it's today AND empty (no entry)
                     cell.classList.add('today');
                 }
-
                 grid.appendChild(cell);
-
-                // also add a timeline item
-                const tlEntry = createTimelineEntry(dateStr, entry, month, dayNumber);
-                timelineFragment.appendChild(tlEntry);
+                // collect data for timeline (don't create DOM yet)
+                monthEntries.push({ dateStr, entry, dayNumber });
             }
-
             const title = document.createElement('div');
             title.className = 'month-title';
             title.innerText = month;
-
             card.appendChild(title);
             card.appendChild(grid);
             fragment.appendChild(card);
+            
+            // create timeline month group
+            const tlGroup = createTimelineMonthGroup(month, index, monthEntries);
+            timelineFragment.appendChild(tlGroup);
         });
-
         // append everything at once to avoid reflows
         container.appendChild(fragment);
         container.appendChild(timelineFragment);
-
         // reapply the current layout
         applyLayout();
-
         // reveal month cards only when they scroll into view
         setupMonthCardReveal();
-
         // jump to today's position after refresh/render (all layouts)
         requestAnimationFrame(() => scrollToToday({ behavior: 'auto' }));
     }
@@ -326,10 +326,18 @@
         }
 
         if (currentLayout === 'timeline') {
-            const row = scrollArea.querySelector(`.timeline-entry[data-date="${todayStr}"]`);
-            if (row) {
-                row.scrollIntoView({ block: 'center', behavior });
+            // ensure current month is expanded
+            const currentMonthIdx = new Date().getMonth();
+            if (collapsedMonths.has(currentMonthIdx)) {
+                toggleTimelineMonth(currentMonthIdx);
             }
+            // scroll to the month group header (not the entry) so the whole month is visible
+            setTimeout(() => {
+                const monthGroup = scrollArea.querySelector(`.timeline-month-group[data-month="${currentMonthIdx}"]`);
+                if (monthGroup) {
+                    monthGroup.scrollIntoView({ block: 'start', behavior });
+                }
+            }, 50);
             return;
         }
 
@@ -448,6 +456,74 @@
         }, { passive: true });
     }
 
+    // creates a collapsible month group for timeline view
+    function createTimelineMonthGroup(monthName, monthIndex, entries) {
+        const group = document.createElement('div');
+        group.className = 'timeline-month-group';
+        group.dataset.month = monthIndex;
+        
+        // count entries with mood data
+        const filledCount = entries.filter(e => e.entry).length;
+        const totalDays = entries.length;
+        
+        // calculate average mood for this month
+        let avgMood = 0;
+        if (filledCount > 0) {
+            const sum = entries.filter(e => e.entry).reduce((acc, e) => acc + e.entry.level, 0);
+            avgMood = sum / filledCount;
+        }
+        
+        // header (clickable to expand/collapse)
+        const header = document.createElement('div');
+        header.className = 'timeline-month-header';
+        const isCollapsed = collapsedMonths.has(monthIndex);
+        if (isCollapsed) group.classList.add('collapsed');
+        
+        header.innerHTML = `
+            <div class="timeline-month-title">
+                <span class="timeline-collapse-icon">${isCollapsed ? '▶' : '▼'}</span>
+                <span>${monthName} ${YEAR}</span>
+            </div>
+            <div class="timeline-month-stats">
+                <span class="timeline-stat-count">${filledCount}/${totalDays} days</span>
+                ${filledCount > 0 ? `<span class="timeline-stat-avg" style="background: ${MOOD_COLORS[Math.round(avgMood) - 1]}">${avgMood.toFixed(1)}</span>` : ''}
+            </div>
+        `;
+        
+        header.addEventListener('click', () => toggleTimelineMonth(monthIndex));
+        group.appendChild(header);
+        
+        // entries container
+        const content = document.createElement('div');
+        content.className = 'timeline-month-content';
+        
+        // only render entries (lazy - only filled ones by default for perf)
+        entries.forEach(({ dateStr, entry, dayNumber }) => {
+            const element = createTimelineEntry(dateStr, entry, monthName, dayNumber);
+            content.appendChild(element);
+        });
+        
+        group.appendChild(content);
+        return group;
+    }
+    
+    function toggleTimelineMonth(monthIndex) {
+        const group = document.querySelector(`.timeline-month-group[data-month="${monthIndex}"]`);
+        if (!group) return;
+        
+        const icon = group.querySelector('.timeline-collapse-icon');
+        
+        if (collapsedMonths.has(monthIndex)) {
+            collapsedMonths.delete(monthIndex);
+            group.classList.remove('collapsed');
+            if (icon) icon.textContent = '▼';
+        } else {
+            collapsedMonths.add(monthIndex);
+            group.classList.add('collapsed');
+            if (icon) icon.textContent = '▶';
+        }
+    }
+
     // builds a single timeline row
     function createTimelineEntry(dateStr, entry, monthName, day) {
         const element = document.createElement('div');
@@ -475,7 +551,7 @@
 
         const dateLabel = document.createElement('div');
         dateLabel.className = 'timeline-date';
-        dateLabel.textContent = `${monthName} ${day}, ${YEAR}`;
+        dateLabel.textContent = `${monthName} ${day}`;
 
         const noteElement = document.createElement('div');
         noteElement.className = 'timeline-note';
