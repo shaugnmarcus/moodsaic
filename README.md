@@ -1,4 +1,4 @@
-# Moodelier
+# Moodsaic
 
 Visualize your year in color. Each day becomes a little colored cell on a calendar grid, so you can see how you've been feeling at a glance. Log your mood daily with colors, emojis, and notes. By the end of the year you'll have a full picture of your emotional patterns.
 

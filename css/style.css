@@ -4,7 +4,7 @@
                            radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
                            radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
             --glass-bg: rgba(255, 255, 255, 0.06);
-            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-border: rgba(255, 255, 255, 0.15);
             --glass-highlight: rgba(255, 255, 255, 0.1);
             --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
             
@@ -28,6 +28,9 @@
 
         body {
             font-family: var(--font-family);
+                    button, input, select, textarea {
+                        font-family: var(--font-family) !important;
+                    }
             background-color: #0f0f12;
             background-image: var(--bg-gradient);
             background-attachment: fixed;
@@ -98,10 +101,17 @@
         }
 
         h1 {
-            font-weight: 200;
-            font-size: 2rem;
-            letter-spacing: 1px;
+            font-family: 'Montserrat', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 600;
+            font-size: 2.2rem;
+            letter-spacing: 0.5px;
             text-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.4);
+            text-transform: lowercase;
+            background: linear-gradient(90deg, #fff 60%, #b3c6ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
         }
 
         button.glass-btn {
@@ -118,6 +128,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
+        button.glass-btn:active,
         button.glass-btn:hover {
             background: rgba(255, 255, 255, 0.15);
             transform: translateY(-2px);
@@ -177,6 +188,7 @@
             pointer-events: none;
         }
 
+        .month-card:active,
         .month-card:hover {
             transform: translateY(-3px);
             border-color: rgba(255, 255, 255, 0.3);
@@ -252,15 +264,18 @@
             color: rgba(255,255,255,0.95);
         }
 
+        .day-cell.has-emoji:active .day-num,
         .day-cell.has-emoji:hover .day-num {
             opacity: 0;
         }
 
+        .day-cell.has-emoji:active::after,
         .day-cell.has-emoji:hover::after {
             opacity: 1;
             transform: scale(1);
         }
 
+        .day-cell:active,
         .day-cell:hover {
             transform: scale(1.15);
             background: rgba(255, 255, 255, 0.15);
@@ -343,6 +358,7 @@
             transition: color 0.3s;
         }
         .close-btn:hover { color: #fff; }
+    .close-btn:active { color: #fff; }
 
         /* FORM ELEMENTS */
         .mood-selector {
@@ -373,6 +389,7 @@
         }
 
         .mood-opt:hover { opacity: 1; transform: scale(1.1); }
+    .mood-opt:active { opacity: 1; transform: scale(1.1); }
 
         .emoji-grid {
             display: grid;
@@ -392,6 +409,7 @@
         }
 
         .emoji-btn:hover { background: rgba(255,255,255,0.15); }
+            .emoji-btn:active { background: rgba(255,255,255,0.15); }
         .emoji-btn.selected {
             background: rgba(255,255,255,0.2);
             border-color: rgba(255,255,255,0.4);
@@ -525,6 +543,7 @@
             transition: background 0.2s;
         }
         .year-option:hover { background: rgba(255,255,255,0.1); }
+            .year-option:active { background: rgba(255,255,255,0.1); }
         .year-option.selected { background: rgba(255,255,255,0.15); font-weight: bold; }
 
         /* layout picker (reuses year list) */
@@ -582,6 +601,7 @@
             transition: all 0.3s ease;
             flex-shrink: 0;
         }
+        .nav-arrow:active,
         .nav-arrow:hover {
             background: rgba(255,255,255,0.15);
             transform: scale(1.1);
@@ -641,6 +661,7 @@
         .calendar-container.timeline-view .timeline-month-group {
             display: block;
         }
+        .timeline-month-group:active,
         .timeline-month-group:hover {
             border-color: rgba(255,255,255,0.25);
         }
@@ -655,6 +676,7 @@
             transition: background 0.2s ease;
             user-select: none;
         }
+        .timeline-month-header:active,
         .timeline-month-header:hover {
             background: rgba(255,255,255,0.06);
         }
@@ -723,6 +745,7 @@
             align-items: center;
             gap: 14px;
         }
+        .timeline-entry:active,
         .timeline-entry:hover {
             transform: translateX(4px);
             background: rgba(255,255,255,0.06);
@@ -785,6 +808,7 @@
             color: var(--text-muted);
             user-select: none;
         }
+        .dots-toggle-label:active,
         .dots-toggle-label:hover {
             color: var(--text-main);
         }
@@ -832,6 +856,7 @@
             box-shadow: var(--glass-shadow);
             transition: transform 0.5s ease, border-color 0.4s ease;
         }
+        .dots-container:active,
         .dots-container:hover {
             transform: translateY(-3px);
             border-color: rgba(255, 255, 255, 0.3);
@@ -1038,12 +1063,12 @@
                 border-radius: 10px;
             }
 
-            /* textarea */
             textarea {
                 height: 80px;
                 padding: 12px;
                 border-radius: 12px;
                 margin-bottom: 15px;
+                font-size: 1rem;
             }
 
             /* action buttons */
@@ -1252,6 +1277,7 @@
             margin-top: 10px;
         }
 
+        .submit-btn:active,
         .submit-btn:hover {
             background: rgba(255, 255, 255, 0.15);
             transform: translateY(-2px);
@@ -1303,9 +1329,6 @@
             transition: color 0.2s;
         }
 
-        .forgot-link:hover {
-            color: #fff;
-        }
 
         .error-msg {
             color: var(--error);
