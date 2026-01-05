@@ -327,15 +327,25 @@
         
         // when user logs in or out
         auth.onAuthStateChanged(async user => {
+            const hideLoadingOverlay = () => {
+                var loadingOverlay = document.getElementById('loadingOverlay');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.add('hide');
+                }
+            };
             if (user) {
                 // need to reload to get updated displayName
                 await user.reload();
                 currentUser = auth.currentUser;
-                loadMoodData().then(() => renderCalendar());
+                loadMoodData().then(() => {
+                    renderCalendar();
+                    hideLoadingOverlay();
+                });
             } else {
                 currentUser = null;
                 moodCache = {};
                 renderCalendar();
+                hideLoadingOverlay();
             }
         });
     });
